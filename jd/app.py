@@ -13,8 +13,7 @@
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 import time
-from threading import Thread
-from models import JdItems, Session
+from jd.models import JdItems, Session
 
 session = Session()
 
