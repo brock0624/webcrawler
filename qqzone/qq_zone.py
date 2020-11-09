@@ -8,6 +8,7 @@ import re
 from bs4 import BeautifulSoup
 import requests
 
+
 def login_qzone(driver, user, passwd):
     driver.get('https://user.qzone.qq.com/%s/' % user)  # URL
     driver.implicitly_wait(10)  # 隐示等待，为了等待充分加载好网址
@@ -28,13 +29,14 @@ def login_qzone(driver, user, passwd):
 def get_cookies(driver, filepath):
     cookie = {}  # 初始化cookie字典
     filename = os.path.join(filepath, "cookies.txt")
-    with open(filename,"w") as f:
+    with open(filename, "w") as f:
         for elem in driver.get_cookies():  # 取cookies
             cookie[elem['name']] = elem['value']
             f.write("%s=%s\n" % (elem['name'], elem['value']))
     return cookie
 
-def get_qzonetoken(driver,uin):
+
+def get_qzonetoken(driver, uin):
     url = "https://user.qzone.qq.com/%s/" % uin
     driver.get(url)
     html = driver.page_source
@@ -43,16 +45,18 @@ def get_qzonetoken(driver,uin):
 
     return g_qzonetoken
 
+
 def get_GTK(cookie):
     hashes = 5381
     for letter in cookie['p_skey']:
         hashes += (hashes << 5) + ord(letter)
     return hashes & 0x7fffffff
 
+
 # 获得好友列表  注意下面的链接
-def get_friend_list(driver,uin,gtk,qzonetoken):
+def get_friend_list(driver, uin, gtk, qzonetoken):
     url = "https://user.qzone.qq.com/proxy/domain/r.qzone.qq.com/cgi-bin/tfriend/friend_hat_get.cgi?hat_seed=1&uin={uin}&fupdate=1&g_tk={gtk}&qzonetoken={qzonetoken}".format(
-        uin=uin,gtk=gtk,qzonetoken=qzonetoken
+        uin=uin, gtk=gtk, qzonetoken=qzonetoken
     )
     driver.get(url)
     friends = str(driver.page_source).lstrip("_Callback(").rstrip(");")
@@ -60,8 +64,10 @@ def get_friend_list(driver,uin,gtk,qzonetoken):
     print(friends_dict)
     return friends_dict
 
+
 def format_time(date):
-    a = date[:-6].replace('年', '-').replace('月', '-').strip('日')
+    dt = date.split(' ')
+    a = dt[0].replace('年', '-').replace('月', '-').strip('日')
     b = a.split('-')
     for i in range(2):
         b[1] = b[1].zfill(2)  # 左填充
@@ -69,20 +75,22 @@ def format_time(date):
     b = ''.join(b)
     return b
 
+
 def download_img(img_url, img_name):
     print(img_url)
     header = {}
     # header = {"Authorization": "Bearer " + api_token} # 设置http header，视情况加需要的条目，这里的token是用来鉴权的一种方式
     try:
         r = requests.get(img_url, headers=header, stream=True)
-        print(r.status_code) # 返回状态码
+        print(r.status_code)  # 返回状态码
         if r.status_code == 200:
-            open(img_name, 'wb').write(r.content) # 将内容写入图片
+            open(img_name, 'wb').write(r.content)  # 将内容写入图片
         del r
     except Exception as e:
-        print("图片没有下载成功 %s %s" % (img_name,img_url))
+        print("图片没有下载成功 %s %s" % (img_name, img_url))
 
-def get_qzone(driver,qq,filepath,startpage,pagetotal):
+
+def get_qzone(driver, qq, filepath, startpage, pagetotal):
     driver.get('https://user.qzone.qq.com/{}/311'.format(qq))
     driver.implicitly_wait(10)
     time.sleep(3)
@@ -93,10 +101,10 @@ def get_qzone(driver,qq,filepath,startpage,pagetotal):
         print("该qq: %s没有访问权限" % qq)
         return 1
 
-    if not os.path.exists(os.path.join(filepath,qq)):
-        os.mkdir(os.path.join(filepath,qq))
-        os.mkdir(os.path.join(filepath, qq,"images"))
-    filename = os.path.join(filepath,qq,"title.txt")
+    if not os.path.exists(os.path.join(filepath, qq)):
+        os.mkdir(os.path.join(filepath, qq))
+        os.mkdir(os.path.join(filepath, qq, "images"))
+    filename = os.path.join(filepath, qq, "title.txt")
     page = 1
     if startpage != 1:
         page = startpage
@@ -114,29 +122,31 @@ def get_qzone(driver,qq,filepath,startpage,pagetotal):
                 time.sleep(2)
 
             driver.switch_to_frame('app_canvas_frame')  # 切入说说frame
-            bs = BeautifulSoup(driver.page_source.encode('GBK', 'ignore').decode('gbk'))
+            bs = BeautifulSoup(driver.page_source.encode('GBK', 'ignore').decode('gbk'), features="lxml")
 
             pres = bs.find_all('pre', class_='content')
 
             for pre in pres:
-                id = random.randint(11,99)
+                id = random.randint(11, 99)
                 shuoshuo = pre.text
                 tx = pre.parent.parent.find('a', class_="c_tx c_tx3 goDetail")['title']
                 dt = format_time(tx)
-                imglist = pre.parent.parent.find('div',class_="img-attachments-inner clearfix")
-                print(tx + "\t" + shuoshuo.replace("\r","").replace("\n","&&"))
-                with open(filename,"a+") as f:
-                    f.write(dt+"\t"+str(id)+"\t"+tx + "\t" + shuoshuo.replace("\r","").replace("\n","&&")+"\n")
+                imglist = pre.parent.parent.find('div', class_="img-attachments-inner clearfix")
+                print(tx + "\t" + shuoshuo.replace("\r", "").replace("\n", "&&"))
+                with open(filename, "a+") as f:
+                    f.write(
+                        dt + "\t" + str(page) + "\t" + str(id) + "\t" + tx + "\t" + shuoshuo.replace("\r", "").replace(
+                            "\n", "&&") + "\n")
                 if not imglist:
                     continue
                 elif not imglist:
                     continue
                 for img in imglist.contents:
-                    imgid = random.randint(1001,2001)
-                    imgname = "IMG_%s_%s%s.jpg" % (dt,str(id),str(imgid))
+                    imgid = random.randint(1001, 2001)
+                    imgname = "IMG_%s_%s%s.jpg" % (dt, str(id), str(imgid))
                     imgurl = img.attrs["href"]
                     print(imgurl)
-                    download_img(imgurl,os.path.join(filepath, qq,"images",imgname))
+                    download_img(imgurl, os.path.join(filepath, qq, "images", imgname))
 
             print("page %s 当前页已经处理完成" % page)
             driver.find_element_by_link_text(u'下一页').click()  # 点击下一页
@@ -155,15 +165,13 @@ def get_qzone(driver,qq,filepath,startpage,pagetotal):
         driver.close()
 
 
-
-
 def main():
     print("start")
     filepath = 'D:\\data\\webcrawler\\qqzone'
     user = 'xxxxx'
     passwd = 'xxxxx'
     puin = 'xxxxx'
-    startpage = 10
+    startpage = 1
     # 爬取前多少页的记录
     pagetotal = 1000
     driver = webdriver.Chrome("D:\\app\\chromedriver\\chromedriver.exe")
@@ -174,8 +182,7 @@ def main():
     # qzonetoken = get_qzonetoken(driver,user)
     # get_friend_list(driver,user,gtk,qzonetoken)
 
-    get_qzone(driver,puin,filepath,startpage,pagetotal)
-
+    get_qzone(driver, puin, filepath, startpage, pagetotal)
 
 
 if __name__ == '__main__':
